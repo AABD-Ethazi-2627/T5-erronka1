@@ -46,16 +46,21 @@ class SentsoreSaria(BaseModel):
 class Predikzioa(BaseModel):
     ### Kodea hemen ###
     alert_level: str          # "OK" | "KONTUZ" | "LARRIA"
-
+    machine_id: str
+    sensor_id: str
+    temperature: float
+    vibration: float
 
 # ── Endpointak ────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health():
-    ### Kodea hemen ###
+    if eredua is None:
+        raise HTTPException(status_code = 503,detail="Eredua ez dago kargatua")
+    return{"egoera": "martxan", "eredua_prest": True}
 
 
 @app.post("/predict", response_model=Predikzioa)
 def predict(saria: SentsoreSaria):
-    ### Kodea hemen ###
+
 
