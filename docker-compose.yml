@@ -106,6 +106,7 @@ services:
     container_name: cnc-editor
     ports:
       - "8444:8443"
+      - "8001:8000"
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -123,4 +124,4 @@ volumes:
     driver_opts:
       type: cifs
       device: "//192.168.75.150/cnc-stream"
-      o: "username=cncuser,password=cncuser,ro,vers=3.0"
+      o: "username=cncuser,password=cncuser,ro,vers=3.0,cache=none,actimeo=0,nohandlecache"
