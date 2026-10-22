@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import joblib
 import pandas as pd
+import numpy as np
 from pydantic import BaseModel
 
 load_dotenv()
@@ -99,13 +100,18 @@ def predict(data: SentsoreEskaera):
     if eredua is None:
         raise HTTPException(status_code=503, detail="Eredua ez dago prest")
 
+    TYPE_MAP = {"L": 0, "M": 1, "H": 2}
+
     try:
         features_df = pd.DataFrame([{
             "air_temp_K": data.air_temp_K,
             "process_temp_K": data.process_temp_K,
             "rpm": data.rpm,
             "torque_Nm": data.torque_Nm,
-            "tool_wear_min": data.tool_wear_min
+            "tool_wear_min": data.tool_wear_min,
+            "temp_diff": data.process_temp_K - data.air_temp_K,
+            "power_est": data.torque_Nm * data.rpm * 2 * np.pi / 60,
+            "type_id": TYPE_MAP.get(data.machine_type)
         }])
 
         if hasattr(eredua, "predict_proba"):
@@ -113,9 +119,9 @@ def predict(data: SentsoreEskaera):
         else:
             prob = float(eredua.predict(features_df)[0])
 
-        if prob > 0.80:
+        if prob > 0.70:
             alert = "LARRIA"
-        elif prob >= 0.50:
+        elif prob >= 0.15:
             alert = "KONTUZ"
         else:
             alert = "OK"
@@ -123,7 +129,7 @@ def predict(data: SentsoreEskaera):
         return PredikzioErantzuna(
             timestamp=data.timestamp,
             machine_id=data.machine_id,
-            failure_predicted=prob >= 0.50,
+            failure_predicted=prob >= 0.15,
             failure_probability=round(prob, 4),
             alert_level=alert
         )
