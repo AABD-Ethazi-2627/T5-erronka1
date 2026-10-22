@@ -1,66 +1,139 @@
-"""
-CNC Guard — Scoring API
-FastAPI mikrozerbitzu bat: sentsore-irakurketa bat jasotzen du eta
-entrenatutako ereduaren bidez hutsegite-probabilitatea itzultzen du.
-
-Helburua: NiFi-k InvokeHTTP bidez deitzen dio fase 3an.
-"""
-
-import os
-import logging
 from contextlib import asynccontextmanager
-
+import os
+import time
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import joblib
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+import numpy as np
 from pydantic import BaseModel
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [SCORING] %(message)s")
-log = logging.getLogger(__name__)
+load_dotenv()
 
-MODEL_PATH = os.getenv("MODEL_PATH", "/models/cnc_failure_model.pkl")
-
-# Modeloa aplikazio-abieran behin kargatzen da (ez eskaera bakoitzean)
-model = None
+EREDU_BIDE = "models/cnc_failure_model.pkl"
+eredua = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    ### Kodea hemen ###
+    global eredua
+    if os.path.exists(EREDU_BIDE):
+        eredua = joblib.load(EREDU_BIDE)
+        print("Eredua ondo kargatu da memoriak.")
+    else:
+        print(f"KONTUZ: Ez da fitxategia aurkitu: {EREDU_BIDE}.")
+    yield
+    eredua = None
+    print("Zerbitzaria itzaltzen")
 
 
 app = FastAPI(
     title="CNC Guard Scoring API",
-    description="Predictive maintenance — hutsegite-probabilitate prediktorea",
     version="1.0.0",
     lifespan=lifespan,
+    root_path="/proxy/8000"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 
-# ── Eskema ────────────────────────────────────────────────────────────────────
+@app.middleware("http")
+async def denbora_neurtu(eskaera, deitu_hurrengoa):
+    hasiera = time.time()
+    erantzuna = await deitu_hurrengoa(eskaera)
+    erantzuna.headers["X-prozesatze-denbora"] = str(
+        round(time.time() - hasiera, 4)
+    )
+    return erantzuna
 
-class SentsoreSaria(BaseModel):
-    ### Kodea hemen ###
+
+TOKEN_BALIOA = os.getenv("API_TOKEN", "admin")
+segurtasuna = HTTPBearer()
 
 
-class Predikzioa(BaseModel):
-    ### Kodea hemen ###
-    alert_level: str          # "OK" | "KONTUZ" | "LARRIA"
+def token_egiaztatu(
+    kredentzialak: HTTPAuthorizationCredentials = Depends(segurtasuna),
+):
+    if kredentzialak.credentials != TOKEN_BALIOA:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token baliogabea"
+        )
+    return kredentzialak.credentials
+
+
+class SentsoreEskaera(BaseModel):
+    timestamp: str
     machine_id: str
-    sensor_id: str
-    temperature: float
-    vibration: float
+    machine_type: str
+    air_temp_K: float
+    process_temp_K: float
+    rpm: int
+    torque_Nm: float
+    tool_wear_min: int
 
-# ── Endpointak ────────────────────────────────────────────────────────────────
 
-@app.get("/health")
+class PredikzioErantzuna(BaseModel):
+    timestamp: str
+    machine_id: str
+    failure_predicted: bool
+    failure_probability: float
+    alert_level: str
+
+
+@app.get("/health", dependencies=[Depends(token_egiaztatu)])
 def health():
     if eredua is None:
-        raise HTTPException(status_code = 503,detail="Eredua ez dago kargatua")
-    return{"egoera": "martxan", "eredua_prest": True}
+        raise HTTPException(status_code=503, detail="Eredua ez dago kargatua")
+    return {"status": "ok", "model_loaded": True}
 
 
-@app.post("/predict", response_model=Predikzioa)
-def predict(saria: SentsoreSaria):
+@app.post("/predict", response_model=PredikzioErantzuna, dependencies=[Depends(token_egiaztatu)])
+def predict(data: SentsoreEskaera):
+    if eredua is None:
+        raise HTTPException(status_code=503, detail="Eredua ez dago prest")
 
+    TYPE_MAP = {"L": 0, "M": 1, "H": 2}
 
+    try:
+        features_df = pd.DataFrame([{
+            "air_temp_K": data.air_temp_K,
+            "process_temp_K": data.process_temp_K,
+            "rpm": data.rpm,
+            "torque_Nm": data.torque_Nm,
+            "tool_wear_min": data.tool_wear_min,
+            "temp_diff": data.process_temp_K - data.air_temp_K,
+            "power_est": data.torque_Nm * data.rpm * 2 * np.pi / 60,
+            "type_id": TYPE_MAP.get(data.machine_type)
+        }])
+
+        if hasattr(eredua, "predict_proba"):
+            prob = float(eredua.predict_proba(features_df)[0][1])
+        else:
+            prob = float(eredua.predict(features_df)[0])
+
+        if prob > 0.70:
+            alert = "LARRIA"
+        elif prob >= 0.15:
+            alert = "KONTUZ"
+        else:
+            alert = "OK"
+
+        return PredikzioErantzuna(
+            timestamp=data.timestamp,
+            machine_id=data.machine_id,
+            failure_predicted=prob >= 0.15,
+            failure_probability=round(prob, 4),
+            alert_level=alert
+        )
+
+    except Exception as e:
+        print(f"Errorea predikzioan: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
