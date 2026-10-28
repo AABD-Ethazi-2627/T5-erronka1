@@ -1,3 +1,5 @@
+from scipy._external import array_api_compat
+from typing import Literal
 from contextlib import asynccontextmanager
 import os
 import time
@@ -72,7 +74,7 @@ def token_egiaztatu(
 class SentsoreEskaera(BaseModel):
     timestamp: str
     machine_id: str
-    machine_type: str
+    machine_type: Literal["L", "M", "H"]
     air_temp_K: float
     process_temp_K: float
     rpm: int
@@ -83,6 +85,14 @@ class SentsoreEskaera(BaseModel):
 class PredikzioErantzuna(BaseModel):
     timestamp: str
     machine_id: str
+    machine_type: str
+    air_temp_C: float
+    process_temp_C: float
+    temp_diff: float
+    rpm: int
+    torque_Nm: float
+    power_est: float
+    tool_wear_min: int
     failure_predicted: bool
     failure_probability: float
     alert_level: str
@@ -100,18 +110,16 @@ def predict(data: SentsoreEskaera):
     if eredua is None:
         raise HTTPException(status_code=503, detail="Eredua ez dago prest")
 
-    TYPE_MAP = {"L": 0, "M": 1, "H": 2}
-
     try:
         features_df = pd.DataFrame([{
-            "air_temp_K": data.air_temp_K,
-            "process_temp_K": data.process_temp_K,
+            "machine_type": data.machine_type,
+            "air_temp_C": data.air_temp_K - 273.15,
+            "process_temp_C": data.process_temp_K - 273.15,
+            "temp_diff": data.process_temp_K - data.air_temp_K,
             "rpm": data.rpm,
             "torque_Nm": data.torque_Nm,
-            "tool_wear_min": data.tool_wear_min,
-            "temp_diff": data.process_temp_K - data.air_temp_K,
             "power_est": data.torque_Nm * data.rpm * 2 * np.pi / 60,
-            "type_id": TYPE_MAP.get(data.machine_type)
+            "tool_wear_min": data.tool_wear_min
         }])
 
         if hasattr(eredua, "predict_proba"):
@@ -119,7 +127,7 @@ def predict(data: SentsoreEskaera):
         else:
             prob = float(eredua.predict(features_df)[0])
 
-        if prob > 0.70:
+        if prob >= 0.70:
             alert = "LARRIA"
         elif prob >= 0.15:
             alert = "KONTUZ"
@@ -129,6 +137,14 @@ def predict(data: SentsoreEskaera):
         return PredikzioErantzuna(
             timestamp=data.timestamp,
             machine_id=data.machine_id,
+            machine_type=data.machine_type,
+            air_temp_C=features_df.iloc[0].air_temp_C,
+            process_temp_C=features_df.iloc[0].process_temp_C,
+            temp_diff=features_df.iloc[0].temp_diff,
+            rpm=data.rpm,
+            torque_Nm=data.torque_Nm,
+            power_est=features_df.iloc[0].power_est,
+            tool_wear_min=data.tool_wear_min,
             failure_predicted=prob >= 0.15,
             failure_probability=round(prob, 4),
             alert_level=alert
