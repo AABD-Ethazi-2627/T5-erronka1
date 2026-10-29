@@ -81,6 +81,7 @@ class SentsoreEskaera(BaseModel):
     rpm: int = Field(..., gt=0)
     torque_Nm: float = Field(..., ge=0)
     tool_wear_min: int = Field(..., ge=0)
+    machine_failure: bool = Field(..., ge=0, le=1)
 
 
 class PredikzioErantzuna(BaseModel):
@@ -147,7 +148,7 @@ def predict(data: SentsoreEskaera):
             torque_Nm=data.torque_Nm,
             power_est=features_df.iloc[0].power_est,
             tool_wear_min=data.tool_wear_min,
-            machine_failure=data.machine_failure,
+            machine_failure=data.machine_failure.astype(bool),
             failure_predicted=prob >= 0.15,
             failure_probability=round(prob, 4),
             alert_level=alert
