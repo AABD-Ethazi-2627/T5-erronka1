@@ -1,0 +1,17 @@
+{
+  "description": "CNC Guard: cnc-predictions ingestio-ordua",
+  "processors": [
+    {
+      "drop": {
+        "description": "machine_id edo timestamp gabeko iragarpenak baztertu",
+        "if": "ctx.machine_id == null || ctx.timestamp == null"
+      }
+    },
+    {
+      "set": {
+        "field": "ingested_at",
+        "value": "{{{_ingest.timestamp}}}"
+      }
+    }
+  ]
+}

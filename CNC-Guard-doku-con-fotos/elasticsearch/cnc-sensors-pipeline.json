@@ -1,0 +1,18 @@
+{
+  "description": "CNC Guard: cnc-sensors kalitate-kontrola eta ingestio-ordua",
+  "processors": [
+    {
+      "drop": {
+        "description": "Goiburua edo machine_id gabeko lerroak baztertu",
+        "if": "ctx.machine_id == null || ctx.machine_id == 'machine_id' || ctx.timestamp == null"
+      }
+    },
+    {
+      "set": {
+        "description": "Elasticsearch-era noiz iritsi den",
+        "field": "ingested_at",
+        "value": "{{{_ingest.timestamp}}}"
+      }
+    }
+  ]
+}

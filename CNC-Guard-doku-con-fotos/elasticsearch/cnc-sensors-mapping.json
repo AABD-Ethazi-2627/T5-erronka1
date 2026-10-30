@@ -1,0 +1,26 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "index.default_pipeline": "cnc-sensors-pipeline"
+  },
+  "mappings": {
+    "properties": {
+      "timestamp":       { "type": "date" },
+      "ingested_at":     { "type": "date" },
+      "machine_id":      { "type": "keyword" },
+      "machine_type":    { "type": "keyword" },
+      "air_temp_K":      { "type": "float" },
+      "process_temp_K":  { "type": "float" },
+      "rpm":             { "type": "integer" },
+      "torque_Nm":       { "type": "float" },
+      "tool_wear_min":   { "type": "integer" },
+      "machine_failure": { "type": "byte" },
+      "failure_TWF":     { "type": "byte" },
+      "failure_HDF":     { "type": "byte" },
+      "failure_PWF":     { "type": "byte" },
+      "failure_OSF":     { "type": "byte" },
+      "failure_RNF":     { "type": "byte" }
+    }
+  }
+}

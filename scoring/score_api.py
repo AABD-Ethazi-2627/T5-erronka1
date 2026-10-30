@@ -36,14 +36,11 @@ app = FastAPI(
     title="CNC Guard Scoring API",
     version="1.0.0",
     lifespan=lifespan,
-    root_path="/proxy/8000"
+    root_path="/proxy/8000",
 )
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"]
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
 
@@ -51,9 +48,7 @@ app.add_middleware(
 async def denbora_neurtu(eskaera, deitu_hurrengoa):
     hasiera = time.time()
     erantzuna = await deitu_hurrengoa(eskaera)
-    erantzuna.headers["X-prozesatze-denbora"] = str(
-        round(time.time() - hasiera, 4)
-    )
+    erantzuna.headers["X-prozesatze-denbora"] = str(round(time.time() - hasiera, 4))
     return erantzuna
 
 
@@ -66,8 +61,7 @@ def token_egiaztatu(
 ):
     if kredentzialak.credentials != TOKEN_BALIOA:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token baliogabea"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token baliogabea"
         )
     return kredentzialak.credentials
 
@@ -108,7 +102,11 @@ def health():
     return {"status": "ok", "model_loaded": True}
 
 
-@app.post("/predict", response_model=PredikzioErantzuna, dependencies=[Depends(token_egiaztatu)])
+@app.post(
+    "/predict",
+    response_model=PredikzioErantzuna,
+    dependencies=[Depends(token_egiaztatu)],
+)
 def predict(data: SentsoreEskaera):
     if eredua is None:
         raise HTTPException(status_code=503, detail="Eredua ez dago prest")
@@ -151,7 +149,7 @@ def predict(data: SentsoreEskaera):
             machine_failure=data.machine_failure,
             failure_predicted=prob >= 0.15,
             failure_probability=round(prob, 4),
-            alert_level=alert
+            alert_level=alert,
         )
 
     except Exception as e:

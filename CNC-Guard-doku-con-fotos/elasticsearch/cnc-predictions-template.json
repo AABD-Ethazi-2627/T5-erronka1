@@ -1,0 +1,31 @@
+{
+  "index_patterns": ["cnc-predictions*"],
+  "priority": 200,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.default_pipeline": "cnc-predictions-pipeline"
+    },
+    "mappings": {
+      "properties": {
+        "timestamp":           { "type": "date" },
+        "ingested_at":         { "type": "date" },
+        "machine_id":          { "type": "keyword" },
+        "machine_type":        { "type": "keyword" },
+        "air_temp_C":          { "type": "float" },
+        "process_temp_C":      { "type": "float" },
+        "temp_diff":           { "type": "float" },
+        "rpm":                 { "type": "integer" },
+        "torque_Nm":           { "type": "float" },
+        "power_est":           { "type": "float" },
+        "tool_wear_min":       { "type": "integer" },
+        "machine_failure":     { "type": "boolean" },
+        "failure_predicted":   { "type": "boolean" },
+        "failure_probability": { "type": "float" },
+        "alert_level":         { "type": "keyword" }
+      }
+    }
+  },
+  "_meta": { "description": "CNC Guard: irakurketa + ereduaren iragarpena (fluxu bakarra)" }
+}
