@@ -1,3 +1,5 @@
+from pydantic import Field
+from typing import Literal
 from contextlib import asynccontextmanager
 import os
 import time
@@ -14,6 +16,7 @@ load_dotenv()
 
 EREDU_BIDE = "models/cnc_failure_model.pkl"
 eredua = None
+KELVIN = 273.15
 
 
 @asynccontextmanager
@@ -72,23 +75,33 @@ def token_egiaztatu(
 class SentsoreEskaera(BaseModel):
     timestamp: str
     machine_id: str
-    machine_type: str
-    air_temp_K: float
-    process_temp_K: float
-    rpm: int
-    torque_Nm: float
-    tool_wear_min: int
+    machine_type: Literal["L", "M", "H"]
+    air_temp_K: float = Field(..., ge=250, le=350)
+    process_temp_K: float = Field(..., ge=250, le=400)
+    rpm: int = Field(..., gt=0)
+    torque_Nm: float = Field(..., ge=0)
+    tool_wear_min: int = Field(..., ge=0)
+    machine_failure: bool = Field(..., ge=0, le=1)
 
 
 class PredikzioErantzuna(BaseModel):
     timestamp: str
     machine_id: str
+    machine_type: str
+    air_temp_C: float
+    process_temp_C: float
+    temp_diff: float
+    rpm: int
+    torque_Nm: float
+    power_est: float
+    tool_wear_min: int
+    machine_failure: bool
     failure_predicted: bool
     failure_probability: float
     alert_level: str
 
 
-@app.get("/health", dependencies=[Depends(token_egiaztatu)])
+@app.get("/health")
 def health():
     if eredua is None:
         raise HTTPException(status_code=503, detail="Eredua ez dago kargatua")
@@ -100,26 +113,24 @@ def predict(data: SentsoreEskaera):
     if eredua is None:
         raise HTTPException(status_code=503, detail="Eredua ez dago prest")
 
-    TYPE_MAP = {"L": 0, "M": 1, "H": 2}
-
     try:
+        air_c = data.air_temp_K - KELVIN
+        process_c = data.process_temp_K - KELVIN
+
         features_df = pd.DataFrame([{
-            "air_temp_K": data.air_temp_K,
-            "process_temp_K": data.process_temp_K,
+            "machine_type": data.machine_type,
+            "air_temp_C": air_c,
+            "process_temp_C": process_c,
+            "temp_diff": process_c - air_c,
             "rpm": data.rpm,
             "torque_Nm": data.torque_Nm,
-            "tool_wear_min": data.tool_wear_min,
-            "temp_diff": data.process_temp_K - data.air_temp_K,
             "power_est": data.torque_Nm * data.rpm * 2 * np.pi / 60,
-            "type_id": TYPE_MAP.get(data.machine_type)
+            "tool_wear_min": data.tool_wear_min
         }])
 
-        if hasattr(eredua, "predict_proba"):
-            prob = float(eredua.predict_proba(features_df)[0][1])
-        else:
-            prob = float(eredua.predict(features_df)[0])
+        prob = float(eredua.predict_proba(features_df)[0][1])
 
-        if prob > 0.70:
+        if prob >= 0.70:
             alert = "LARRIA"
         elif prob >= 0.15:
             alert = "KONTUZ"
@@ -129,6 +140,15 @@ def predict(data: SentsoreEskaera):
         return PredikzioErantzuna(
             timestamp=data.timestamp,
             machine_id=data.machine_id,
+            machine_type=data.machine_type,
+            air_temp_C=features_df.iloc[0].air_temp_C,
+            process_temp_C=features_df.iloc[0].process_temp_C,
+            temp_diff=features_df.iloc[0].temp_diff,
+            rpm=data.rpm,
+            torque_Nm=data.torque_Nm,
+            power_est=features_df.iloc[0].power_est,
+            tool_wear_min=data.tool_wear_min,
+            machine_failure=data.machine_failure,
             failure_predicted=prob >= 0.15,
             failure_probability=round(prob, 4),
             alert_level=alert
