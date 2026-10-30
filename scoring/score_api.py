@@ -148,7 +148,7 @@ def predict(data: SentsoreEskaera):
             torque_Nm=data.torque_Nm,
             power_est=features_df.iloc[0].power_est,
             tool_wear_min=data.tool_wear_min,
-            machine_failure=data.machine_failure.astype(bool),
+            machine_failure=data.machine_failure,
             failure_predicted=prob >= 0.15,
             failure_probability=round(prob, 4),
             alert_level=alert
