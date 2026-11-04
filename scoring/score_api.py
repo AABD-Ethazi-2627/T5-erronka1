@@ -1,16 +1,15 @@
-from pydantic import Field
+from pydantic import Field, BaseModel
 from typing import Literal
 from contextlib import asynccontextmanager
-import os
-import time
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import os
+import time
 import joblib
 import pandas as pd
 import numpy as np
-from pydantic import BaseModel
 
 load_dotenv()
 
