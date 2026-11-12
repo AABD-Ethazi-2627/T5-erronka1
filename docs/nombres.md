@@ -10,10 +10,10 @@
 ## Acceso desde el navegador (tu PC o compañeros)
 
 | Servicio | URL | Usuario / contraseña |
-
+| -- | -- | -- |
 | Editor web (carpeta compartida + terminal) | http://192.168.75.211:8444 | contraseña: `cncguard2026` |
 | NiFi | https://192.168.75.211:8443/nifi | `admin` / `adminpassword123` |
-| Kibana | http://192.168.75.211:5601 | — |
+| Kibana | http:// 192.168.75.211:5601 | `admin` / `sora123` |
 | Elasticsearch | http://192.168.75.211:9200 | — |
 | Scoring API (fase 3) | http://192.168.75.211:8444/proxy/8000/docs | token: `admin` (en `.env`, `API_TOKEN`) |
 | Kafka (desde Python en otro PC) | `192.168.75.211:29092` | — |
@@ -108,5 +108,3 @@ timestamp,machine_id,machine_type,air_temp_K,process_temp_K,rpm,torque_Nm,tool_w
 | `docs/nombres.md` | Esta hoja |
 | `docs/galderak.md` | Respuestas a las preguntas G1–G12 de la erronka |
 | `docs/filebeat.md` | Filebeat: configuración, comandos y problemas resueltos |
-| `docs/kafka-comandos.md` | Chuleta de comandos de Kafka |
-| `docs/AAE_ereduak.md` | Documento teórico de AAE (euskera) |
