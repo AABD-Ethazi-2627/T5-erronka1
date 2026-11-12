@@ -51,6 +51,8 @@ services:
       NIFI_WEB_PROXY_HOST: localhost:8443,${VM_IP}:8443
       NIFI_JVM_HEAP_INIT: 1g
       NIFI_JVM_HEAP_MAX: 2g
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
+      SCORE_API_TOKEN: ${SCORE_API_TOKEN}
     depends_on:
       - kafka
     restart: unless-stopped
@@ -85,19 +87,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-    restart: unless-stopped
-
-  # -- Scoring API (fase 3) --
-  scoring-api:
-    build:
-      context: ./scoring
-    container_name: cnc-scoring
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./models:/models:ro
-    environment:
-      MODEL_PATH: /models/cnc_failure_model.pkl
     restart: unless-stopped
 
   # -- Editor web (VS Code en el navegador) para el equipo --
