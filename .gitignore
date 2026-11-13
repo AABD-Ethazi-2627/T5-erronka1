@@ -1,0 +1,7 @@
+.env
+.ipynb_checkpoints/
+__pycache__/
+.venv/
+kibana-proxy/.htpasswd
+kibana-proxy/.authhash
+docs/nombres.md
